@@ -360,8 +360,9 @@ checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
 
 [[package]]
 name = "hueclient"
-version = "0.3.10-alpha.0"
-source = "git+https://github.com/kali/hue.rs.git?branch=main#e856d94410067669cc190a703e09a91b105592ed"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2626a4adfd6b0808d8ae7951cb8ed97e9be27d55954e763f956fdf912251970"
 dependencies = [
  "regex",
  "reqwest",
