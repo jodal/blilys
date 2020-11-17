@@ -1,10 +1,12 @@
 use directories::ProjectDirs;
 use eyre::Result;
 use hueclient::bridge::CommandLight;
+use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::net::IpAddr;
 use std::{fs, path::Path};
+use std::time::Duration;
 use structopt::StructOpt;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,6 +57,8 @@ enum Command {
     Off { light: usize },
     /// Set brightness.
     Bri { light: usize, bri: u8 },
+    /// Halloween mode.
+    Halloween { light: usize },
 }
 
 fn main() -> Result<()> {
@@ -119,9 +123,10 @@ fn main() -> Result<()> {
             for il in bridge.get_all_lights()? {
                 println!("{id:2}: {name}", id = il.id, name = il.light.name,);
                 println!(
-                    "    {on}, brightness: {bri}",
+                    "    {on}, brightness: {bri}, hue: {hue}",
                     on = if il.light.state.on { "On" } else { "Off" },
-                    bri = il.light.state.bri.unwrap_or(0).to_string()
+                    bri = il.light.state.bri.unwrap_or(0).to_string(),
+                    hue = il.light.state.hue.unwrap_or(0).to_string()
                 );
             }
         }
@@ -137,6 +142,17 @@ fn main() -> Result<()> {
             let command: CommandLight = Default::default();
             bridge.set_light_state(light, &command.with_bri(bri))?;
         }
+        Command::Halloween { light } => {
+            loop {
+                let command: CommandLight = Default::default();
+                bridge.set_light_state(light, &command.with_bri(rand_bri(1, 50)))?;
+                sleep_a_bit();
+
+                let command: CommandLight = Default::default();
+                bridge.set_light_state(light, &command.with_bri(rand_bri(70, 120)))?;
+                sleep_a_bit();
+            }
+        }
     }
 
     Ok(())
@@ -146,4 +162,16 @@ fn print_config(config_path: &Path, config: &Config) -> Result<()> {
     eprintln!("# {}", config_path.to_string_lossy());
     print!("{}", toml::to_string(&config)?);
     Ok(())
+}
+
+fn rand_bri(low: u8, high: u8) -> u8 {
+    let between = Uniform::from(low .. high);
+    let mut rng = rand::thread_rng();
+    return between.sample(&mut rng);
+}
+
+fn sleep_a_bit() {
+    let between = Uniform::from(200..1000);
+    let mut rng = rand::thread_rng();
+    std::thread::sleep(Duration::from_millis(between.sample(&mut rng)));
 }
