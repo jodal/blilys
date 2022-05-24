@@ -41,11 +41,12 @@ enum Command {
 #[derive(Debug, StructOpt)]
 enum LightOperation {
     /// Turn light on.
-    On,
+    On {
+        #[structopt(short, long, help = "Brightness")]
+        bri: Option<u8>,
+    },
     /// Turn light off.
     Off,
-    /// Set brightness.
-    Bri { bri: u8 },
     /// Halloween mode.
     Halloween,
 }
@@ -90,16 +91,15 @@ fn main() -> Result<()> {
             }
         }
         Command::Light { light, op } => match op {
-            LightOperation::On => {
-                let command = CommandLight::default().on();
+            LightOperation::On { bri } => {
+                let mut command = CommandLight::default().on();
+                if let Some(bri) = bri {
+                    command = command.with_bri(bri);
+                }
                 bridge.set_light_state(light, &command)?;
             }
             LightOperation::Off => {
                 let command = CommandLight::default().off();
-                bridge.set_light_state(light, &command)?;
-            }
-            LightOperation::Bri { bri } => {
-                let command = CommandLight::default().with_bri(bri);
                 bridge.set_light_state(light, &command)?;
             }
             LightOperation::Halloween => loop {
