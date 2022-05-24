@@ -63,10 +63,7 @@ enum Command {
 
 fn main() -> Result<()> {
     let config_path = get_config_path()?;
-    let mut config: Config = match config_path.is_file() {
-        true => toml::from_str(String::from_utf8(fs::read(&config_path)?)?.as_ref())?,
-        false => Default::default(),
-    };
+    let mut config = read_config(&config_path)?;
 
     let opt = Opt::from_args();
     let command = Command::from_args();
@@ -140,6 +137,14 @@ fn get_config_path() -> Result<std::path::PathBuf, Error> {
     }
     let config_path = config_dir.join("config.toml");
     Ok(config_path)
+}
+
+fn read_config(config_path: &std::path::PathBuf) -> Result<Config, Error> {
+    let config: Config = match config_path.is_file() {
+        true => toml::from_str(String::from_utf8(fs::read(config_path)?)?.as_ref())?,
+        false => Default::default(),
+    };
+    Ok(config)
 }
 
 fn pair(
