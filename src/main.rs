@@ -56,8 +56,8 @@ fn main() -> Result<()> {
     let bridge = if command == Command::Pair {
         pair(unauth_bridge, &mut config)?
     } else {
-        match config.bridge.username.to_owned() {
-            Some(username) => unauth_bridge.with_user(username),
+        match config.bridge.username {
+            Some(ref username) => unauth_bridge.with_user(username),
             None => pair(unauth_bridge, &mut config)?,
         }
     };
