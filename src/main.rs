@@ -28,6 +28,14 @@ enum Command {
     Pair,
     /// Show config.
     Config,
+    /// List available groups.
+    Groups,
+    // Control a group.
+    Group {
+        group: usize,
+        #[structopt(subcommand)]
+        op: LightOperation,
+    },
     /// List available lights.
     Lights,
     /// Control a light.
@@ -79,6 +87,40 @@ fn main() -> Result<()> {
         Command::Config => {
             config.print()?;
         }
+        Command::Groups => {
+            for ig in bridge.get_all_groups()? {
+                let mut lights = ig.group.lights.to_owned();
+                lights.sort_by_key(|l| l.parse::<usize>().expect("Light ID to be a number"));
+                println!(
+                    "{id:2}: {name:30} [{lights}]",
+                    id = ig.id,
+                    name = ig.group.name,
+                    lights = lights.join(", ")
+                );
+            }
+        }
+        Command::Group { group, op } => match op {
+            LightOperation::On { bri } => {
+                let mut command = CommandLight::default().on();
+                if let Some(bri) = bri {
+                    command = command.with_bri(bri);
+                }
+                bridge.set_group_state(group, &command)?;
+            }
+            LightOperation::Off => {
+                let command = CommandLight::default().off();
+                bridge.set_group_state(group, &command)?;
+            }
+            LightOperation::Halloween => loop {
+                let command = CommandLight::default().with_bri(rand_bri(1, 50));
+                bridge.set_group_state(group, &command)?;
+                sleep_a_bit();
+
+                let command = CommandLight::default().with_bri(rand_bri(70, 120));
+                bridge.set_group_state(group, &command)?;
+                sleep_a_bit();
+            },
+        },
         Command::Lights => {
             for il in bridge.get_all_lights()? {
                 println!("{id:2}: {name}", id = il.id, name = il.light.name,);
