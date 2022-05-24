@@ -1,12 +1,12 @@
 use directories::ProjectDirs;
-use eyre::Result;
-use hueclient::bridge::CommandLight;
+use eyre::{Error, Result};
+use hueclient::CommandLight;
 use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::net::IpAddr;
-use std::{fs, path::Path};
 use std::time::Duration;
+use std::{fs, path::Path};
 use structopt::StructOpt;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ struct Opt {
     cmd: Command,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Eq, PartialEq, StructOpt)]
 enum Command {
     /// Pair with bridge to get a username.
     Pair,
@@ -76,45 +76,26 @@ fn main() -> Result<()> {
     let opt = Opt::from_args();
     let command = Command::from_args();
 
-    let mut bridge = match opt.bridge {
-        Some(ip) => hueclient::bridge::Bridge::for_ip(ip),
+    let unauth_bridge = match opt.bridge {
+        Some(ip) => hueclient::Bridge::for_ip(ip),
         None => match config.bridge.ip {
-            Some(ip) => hueclient::bridge::Bridge::for_ip(ip),
-            None => hueclient::bridge::Bridge::discover_required(),
+            Some(ip) => hueclient::Bridge::for_ip(ip),
+            None => hueclient::Bridge::discover_required(),
         },
     };
 
-    match config.bridge.username.to_owned() {
-        Some(username) => {
-            bridge = bridge.with_user(username);
+    let bridge = if command == Command::Pair {
+        pair(unauth_bridge, &mut config, &config_path)?
+    } else {
+        match config.bridge.username.to_owned() {
+            Some(username) => unauth_bridge.with_user(username),
+            None => pair(unauth_bridge, &mut config, &config_path)?,
         }
-        None => {}
-    }
+    };
 
     match command {
         Command::Pair => {
-            eprintln!("Discovered Philips Hue bridge at {}.", bridge.ip);
-            eprintln!("To pair, press the button on your bridge now.");
-            eprintln!("Then, press any key to continue pairing ...");
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
-
-            eprintln!("Registering user ...");
-            let username = bridge.register_user("blilys")?;
-            eprintln!("Pairing complete.");
-
-            eprintln!("Writing configuration ...");
-            config = Config {
-                bridge: Bridge {
-                    ip: Some(bridge.ip),
-                    username: Some(username),
-                    ..config.bridge
-                },
-                ..config
-            };
-            fs::write(&config_path, toml::to_string(&config)?)?;
-            print_config(&config_path, &config)?;
+            // Pairing is handled above, when creating the authenticated Bridge.
         }
         Command::Config => {
             print_config(&config_path, &config)?;
@@ -142,20 +123,47 @@ fn main() -> Result<()> {
             let command: CommandLight = Default::default();
             bridge.set_light_state(light, &command.with_bri(bri))?;
         }
-        Command::Halloween { light } => {
-            loop {
-                let command: CommandLight = Default::default();
-                bridge.set_light_state(light, &command.with_bri(rand_bri(1, 50)))?;
-                sleep_a_bit();
+        Command::Halloween { light } => loop {
+            let command: CommandLight = Default::default();
+            bridge.set_light_state(light, &command.with_bri(rand_bri(1, 50)))?;
+            sleep_a_bit();
 
-                let command: CommandLight = Default::default();
-                bridge.set_light_state(light, &command.with_bri(rand_bri(70, 120)))?;
-                sleep_a_bit();
-            }
-        }
+            let command: CommandLight = Default::default();
+            bridge.set_light_state(light, &command.with_bri(rand_bri(70, 120)))?;
+            sleep_a_bit();
+        },
     }
 
     Ok(())
+}
+
+fn pair(
+    unauth_bridge: hueclient::UnauthBridge,
+    config: &mut Config,
+    config_path: &std::path::PathBuf,
+) -> Result<hueclient::Bridge, Error> {
+    eprintln!("Discovered Philips Hue bridge at {}.", unauth_bridge.ip);
+    eprintln!("To pair, press the button on your bridge now.");
+    eprintln!("Then, press any key to continue pairing ...");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+
+    eprintln!("Registering user ...");
+    let bridge = unauth_bridge.register_user("blilys")?;
+    eprintln!("Pairing complete.");
+
+    eprintln!("Writing configuration ...");
+    *config = Config {
+        bridge: Bridge {
+            ip: Some(bridge.ip),
+            username: Some(bridge.username.to_owned()),
+            ..config.bridge
+        },
+        ..*config
+    };
+    fs::write(config_path, toml::to_string(&*config)?)?;
+    print_config(config_path, &*config)?;
+    Ok(bridge)
 }
 
 fn print_config(config_path: &Path, config: &Config) -> Result<()> {
@@ -165,7 +173,7 @@ fn print_config(config_path: &Path, config: &Config) -> Result<()> {
 }
 
 fn rand_bri(low: u8, high: u8) -> u8 {
-    let between = Uniform::from(low .. high);
+    let between = Uniform::from(low..high);
     let mut rng = rand::thread_rng();
     return between.sample(&mut rng);
 }
