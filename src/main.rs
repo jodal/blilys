@@ -1,3 +1,4 @@
+use crate::config::Config;
 use eyre::{Error, Result};
 use hueclient::CommandLight;
 use rand::distributions::{Distribution, Uniform};
@@ -41,8 +42,8 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let config_path = config::get_path()?;
-    let mut config = config::read_config(&config_path)?;
+    let config_path = Config::get_path()?;
+    let mut config = Config::read_file(&config_path)?;
 
     let opt = Opt::from_args();
     let command = Command::from_args();
@@ -69,7 +70,7 @@ fn main() -> Result<()> {
             // Pairing is handled above, when creating the authenticated Bridge.
         }
         Command::Config => {
-            config::print_config(&config_path, &config)?;
+            config.print(&config_path)?;
         }
         Command::List => {
             for il in bridge.get_all_lights()? {
@@ -110,7 +111,7 @@ fn main() -> Result<()> {
 
 fn pair(
     unauth_bridge: hueclient::UnauthBridge,
-    config: &mut config::Config,
+    config: &mut Config,
     config_path: &std::path::PathBuf,
 ) -> Result<hueclient::Bridge, Error> {
     eprintln!("Discovered Philips Hue bridge at {}.", unauth_bridge.ip);
@@ -124,7 +125,7 @@ fn pair(
     eprintln!("Pairing complete.");
 
     eprintln!("Writing configuration ...");
-    *config = config::Config {
+    *config = Config {
         bridge: config::Bridge {
             ip: Some(bridge.ip),
             username: Some(bridge.username.to_owned()),
@@ -133,7 +134,7 @@ fn pair(
         ..*config
     };
     fs::write(config_path, toml::to_string(&*config)?)?;
-    config::print_config(config_path, &*config)?;
+    config.print(config_path)?;
     Ok(bridge)
 }
 
