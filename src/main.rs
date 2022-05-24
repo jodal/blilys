@@ -43,7 +43,6 @@ enum Command {
 fn main() -> Result<()> {
     let mut config = Config::from_file()?;
     let opt = Opt::from_args();
-    let command = Command::from_args();
 
     let unauth_bridge = match opt.bridge {
         Some(ip) => hueclient::Bridge::for_ip(ip),
@@ -53,7 +52,7 @@ fn main() -> Result<()> {
         },
     };
 
-    let bridge = if command == Command::Pair {
+    let bridge = if opt.cmd == Command::Pair {
         pair(unauth_bridge, &mut config)?
     } else {
         match config.bridge.username {
@@ -62,7 +61,7 @@ fn main() -> Result<()> {
         }
     };
 
-    match command {
+    match opt.cmd {
         Command::Pair => {
             // Pairing is handled above, when creating the authenticated Bridge.
         }
