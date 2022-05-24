@@ -62,12 +62,7 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let project_dirs = ProjectDirs::from("", "", "blilys").expect("Config dir not readable");
-    let config_dir = project_dirs.config_dir();
-    if !config_dir.is_dir() {
-        fs::create_dir_all(config_dir)?;
-    }
-    let config_path = config_dir.join("config.toml");
+    let config_path = get_config_path()?;
     let mut config: Config = match config_path.is_file() {
         true => toml::from_str(String::from_utf8(fs::read(&config_path)?)?.as_ref())?,
         false => Default::default(),
@@ -135,6 +130,16 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn get_config_path() -> Result<std::path::PathBuf, Error> {
+    let project_dirs = ProjectDirs::from("", "", "blilys").expect("Config dir not readable");
+    let config_dir = project_dirs.config_dir();
+    if !config_dir.is_dir() {
+        fs::create_dir_all(config_dir)?;
+    }
+    let config_path = config_dir.join("config.toml");
+    Ok(config_path)
 }
 
 fn pair(
