@@ -30,14 +30,24 @@ enum Command {
     Config,
     /// List available lights.
     List,
+    /// Control a light.
+    Light {
+        light: usize,
+        #[structopt(subcommand)]
+        op: LightOperation,
+    },
+}
+
+#[derive(Debug, StructOpt)]
+enum LightOperation {
     /// Turn light on.
-    On { light: usize },
+    On,
     /// Turn light off.
-    Off { light: usize },
+    Off,
     /// Set brightness.
-    Bri { light: usize, bri: u8 },
+    Bri { bri: u8 },
     /// Halloween mode.
-    Halloween { light: usize },
+    Halloween,
 }
 
 fn main() -> Result<()> {
@@ -79,26 +89,28 @@ fn main() -> Result<()> {
                 );
             }
         }
-        Command::On { light } => {
-            let command: CommandLight = Default::default();
-            bridge.set_light_state(light, &command.on())?;
-        }
-        Command::Off { light } => {
-            let command: CommandLight = Default::default();
-            bridge.set_light_state(light, &command.off())?;
-        }
-        Command::Bri { light, bri } => {
-            let command: CommandLight = Default::default();
-            bridge.set_light_state(light, &command.with_bri(bri))?;
-        }
-        Command::Halloween { light } => loop {
-            let command: CommandLight = Default::default();
-            bridge.set_light_state(light, &command.with_bri(rand_bri(1, 50)))?;
-            sleep_a_bit();
+        Command::Light { light, op } => match op {
+            LightOperation::On => {
+                let command = CommandLight::default().on();
+                bridge.set_light_state(light, &command)?;
+            }
+            LightOperation::Off => {
+                let command = CommandLight::default().off();
+                bridge.set_light_state(light, &command)?;
+            }
+            LightOperation::Bri { bri } => {
+                let command = CommandLight::default().with_bri(bri);
+                bridge.set_light_state(light, &command)?;
+            }
+            LightOperation::Halloween => loop {
+                let command = CommandLight::default().with_bri(rand_bri(1, 50));
+                bridge.set_light_state(light, &command)?;
+                sleep_a_bit();
 
-            let command: CommandLight = Default::default();
-            bridge.set_light_state(light, &command.with_bri(rand_bri(70, 120)))?;
-            sleep_a_bit();
+                let command = CommandLight::default().with_bri(rand_bri(70, 120));
+                bridge.set_light_state(light, &command)?;
+                sleep_a_bit();
+            },
         },
     }
 
