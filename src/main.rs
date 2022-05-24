@@ -59,6 +59,22 @@ enum LightOperation {
     Halloween,
 }
 
+impl LightOperation {
+    fn to_command(&self) -> Option<CommandLight> {
+        match self {
+            LightOperation::On { bri } => {
+                let mut command = CommandLight::default().on();
+                if let Some(bri) = bri {
+                    command = command.with_bri(*bri);
+                }
+                Some(command)
+            }
+            LightOperation::Off => Some(CommandLight::default().off()),
+            LightOperation::Halloween => None,
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let mut config = Config::from_file()?;
     let opt = Opt::from_args();
@@ -100,17 +116,6 @@ fn main() -> Result<()> {
             }
         }
         Command::Group { group, op } => match op {
-            LightOperation::On { bri } => {
-                let mut command = CommandLight::default().on();
-                if let Some(bri) = bri {
-                    command = command.with_bri(bri);
-                }
-                bridge.set_group_state(group, &command)?;
-            }
-            LightOperation::Off => {
-                let command = CommandLight::default().off();
-                bridge.set_group_state(group, &command)?;
-            }
             LightOperation::Halloween => loop {
                 let command = CommandLight::default().with_bri(rand_bri(1, 50));
                 bridge.set_group_state(group, &command)?;
@@ -119,6 +124,14 @@ fn main() -> Result<()> {
                 let command = CommandLight::default().with_bri(rand_bri(70, 120));
                 bridge.set_group_state(group, &command)?;
                 sleep_a_bit();
+            },
+            light_operation => match light_operation.to_command() {
+                Some(command) => {
+                    bridge.set_group_state(group, &command)?;
+                }
+                None => {
+                    eprintln!("Unsupported operation: {:?}", light_operation);
+                }
             },
         },
         Command::Lights => {
@@ -134,17 +147,6 @@ fn main() -> Result<()> {
             }
         }
         Command::Light { light, op } => match op {
-            LightOperation::On { bri } => {
-                let mut command = CommandLight::default().on();
-                if let Some(bri) = bri {
-                    command = command.with_bri(bri);
-                }
-                bridge.set_light_state(light, &command)?;
-            }
-            LightOperation::Off => {
-                let command = CommandLight::default().off();
-                bridge.set_light_state(light, &command)?;
-            }
             LightOperation::Halloween => loop {
                 let command = CommandLight::default().with_bri(rand_bri(1, 50));
                 bridge.set_light_state(light, &command)?;
@@ -153,6 +155,14 @@ fn main() -> Result<()> {
                 let command = CommandLight::default().with_bri(rand_bri(70, 120));
                 bridge.set_light_state(light, &command)?;
                 sleep_a_bit();
+            },
+            light_operation => match light_operation.to_command() {
+                Some(command) => {
+                    bridge.set_light_state(light, &command)?;
+                }
+                None => {
+                    eprintln!("Unsupported operation: {:?}", light_operation);
+                }
             },
         },
     }
