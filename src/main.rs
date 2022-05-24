@@ -123,10 +123,11 @@ fn main() -> Result<()> {
         },
         Command::Lights => {
             for il in bridge.get_all_lights()? {
-                println!("{id:2}: {name}", id = il.id, name = il.light.name,);
                 println!(
-                    "    {on}, brightness: {bri}, hue: {hue}",
-                    on = if il.light.state.on { "On" } else { "Off" },
+                    "{id:2}: {name:30} [{on:3}] [bri {bri:>3}] [hue {hue:>5}]",
+                    id = il.id,
+                    name = il.light.name,
+                    on = if il.light.state.on { "on" } else { "off" },
                     bri = il.light.state.bri.unwrap_or(0).to_string(),
                     hue = il.light.state.hue.unwrap_or(0).to_string()
                 );
