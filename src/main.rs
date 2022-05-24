@@ -1,8 +1,7 @@
 use crate::config::Config;
-use eyre::{Error, Result};
+use eyre::Result;
 use hueclient::CommandLight;
 use rand::distributions::{Distribution, Uniform};
-use std::fs;
 use std::io;
 use std::net::IpAddr;
 use std::time::Duration;
@@ -42,9 +41,7 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let config_path = Config::get_path()?;
-    let mut config = Config::read_file(&config_path)?;
-
+    let mut config = Config::from_file()?;
     let opt = Opt::from_args();
     let command = Command::from_args();
 
@@ -57,11 +54,11 @@ fn main() -> Result<()> {
     };
 
     let bridge = if command == Command::Pair {
-        pair(unauth_bridge, &mut config, &config_path)?
+        pair(unauth_bridge, &mut config)?
     } else {
         match config.bridge.username.to_owned() {
             Some(username) => unauth_bridge.with_user(username),
-            None => pair(unauth_bridge, &mut config, &config_path)?,
+            None => pair(unauth_bridge, &mut config)?,
         }
     };
 
@@ -70,7 +67,7 @@ fn main() -> Result<()> {
             // Pairing is handled above, when creating the authenticated Bridge.
         }
         Command::Config => {
-            config.print(&config_path)?;
+            config.print()?;
         }
         Command::List => {
             for il in bridge.get_all_lights()? {
@@ -109,11 +106,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn pair(
-    unauth_bridge: hueclient::UnauthBridge,
-    config: &mut Config,
-    config_path: &std::path::PathBuf,
-) -> Result<hueclient::Bridge, Error> {
+fn pair(unauth_bridge: hueclient::UnauthBridge, config: &mut Config) -> Result<hueclient::Bridge> {
     eprintln!("Discovered Philips Hue bridge at {}.", unauth_bridge.ip);
     eprintln!("To pair, press the button on your bridge now.");
     eprintln!("Then, press any key to continue pairing ...");
@@ -124,17 +117,12 @@ fn pair(
     let bridge = unauth_bridge.register_user("blilys")?;
     eprintln!("Pairing complete.");
 
-    eprintln!("Writing configuration ...");
-    *config = Config {
-        bridge: config::Bridge {
-            ip: Some(bridge.ip),
-            username: Some(bridge.username.to_owned()),
-            ..config.bridge
-        },
-        ..*config
-    };
-    fs::write(config_path, toml::to_string(&*config)?)?;
-    config.print(config_path)?;
+    eprintln!("Saving configuration ...");
+    config.bridge.ip = Some(bridge.ip);
+    config.bridge.username = Some(bridge.username.to_owned());
+    config.save()?;
+    config.print()?;
+
     Ok(bridge)
 }
 

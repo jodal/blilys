@@ -1,5 +1,5 @@
 use directories::ProjectDirs;
-use eyre::{Error, Result};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std;
 use std::fs;
@@ -8,6 +8,9 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(skip_serializing)]
+    pub path: Option<PathBuf>,
+
     pub bridge: Bridge,
 }
 
@@ -20,6 +23,7 @@ pub struct Bridge {
 impl Default for Config {
     fn default() -> Self {
         Config {
+            path: None,
             bridge: Bridge {
                 ip: None,
                 username: None,
@@ -29,7 +33,11 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn get_path() -> Result<PathBuf, Error> {
+    pub fn from_file() -> Result<Config> {
+        Ok(Config::read_file(&Config::get_path()?)?)
+    }
+
+    fn get_path() -> Result<PathBuf> {
         let project_dirs = ProjectDirs::from("", "", "blilys").expect("Config dir not readable");
         let config_dir = project_dirs.config_dir();
         if !config_dir.is_dir() {
@@ -39,17 +47,30 @@ impl Config {
         Ok(config_path)
     }
 
-    pub fn read_file(config_path: &Path) -> Result<Config, Error> {
-        let config: Config = match config_path.is_file() {
-            true => toml::from_str(String::from_utf8(fs::read(config_path)?)?.as_ref())?,
+    fn read_file(path: &Path) -> Result<Config> {
+        let mut config: Config = match path.is_file() {
+            true => toml::from_str(String::from_utf8(fs::read(path)?)?.as_ref())?,
             false => Default::default(),
         };
+        config.path = Some(path.to_owned());
         Ok(config)
     }
 
-    pub fn print(&self, config_path: &Path) -> Result<()> {
-        eprintln!("# {}", config_path.to_string_lossy());
-        print!("{}", toml::to_string(&self)?);
+    pub fn save(&self) -> Result<()> {
+        let path = self
+            .path
+            .as_ref()
+            .expect("Config must have a path to be saved.");
+        let contents = toml::to_string(self)?;
+        fs::write(path, contents)?;
+        Ok(())
+    }
+
+    pub fn print(&self) -> Result<()> {
+        if let Some(path) = &self.path {
+            eprintln!("# {}", path.display());
+        }
+        print!("{}", toml::to_string(self)?);
         Ok(())
     }
 }
