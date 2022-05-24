@@ -63,7 +63,7 @@ pub enum LightMode {
 }
 
 impl LightOperation {
-    pub fn to_command(&self) -> CommandLight {
+    pub fn to_hue_command(&self) -> CommandLight {
         match self {
             LightOperation::On { bri } => {
                 let mut command = CommandLight::default().on();

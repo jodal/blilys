@@ -63,7 +63,7 @@ fn main() -> Result<()> {
                 },
             },
             light_operation => {
-                bridge.set_group_state(group, &light_operation.to_command())?;
+                bridge.set_group_state(group, &light_operation.to_hue_command())?;
             }
         },
         Command::Lights => {
@@ -91,7 +91,7 @@ fn main() -> Result<()> {
                 },
             },
             light_operation => {
-                bridge.set_light_state(light, &light_operation.to_command())?;
+                bridge.set_light_state(light, &light_operation.to_hue_command())?;
             }
         },
     }
