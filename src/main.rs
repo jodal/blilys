@@ -1,34 +1,13 @@
-use directories::ProjectDirs;
 use eyre::{Error, Result};
 use hueclient::CommandLight;
 use rand::distributions::{Distribution, Uniform};
-use serde::{Deserialize, Serialize};
+use std::fs;
 use std::io;
 use std::net::IpAddr;
 use std::time::Duration;
-use std::{fs, path::Path};
 use structopt::StructOpt;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    bridge: Bridge,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            bridge: Bridge {
-                ip: None,
-                username: None,
-            },
-        }
-    }
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct Bridge {
-    ip: Option<IpAddr>,
-    username: Option<String>,
-}
+mod config;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -62,8 +41,8 @@ enum Command {
 }
 
 fn main() -> Result<()> {
-    let config_path = get_config_path()?;
-    let mut config = read_config(&config_path)?;
+    let config_path = config::get_path()?;
+    let mut config = config::read_config(&config_path)?;
 
     let opt = Opt::from_args();
     let command = Command::from_args();
@@ -90,7 +69,7 @@ fn main() -> Result<()> {
             // Pairing is handled above, when creating the authenticated Bridge.
         }
         Command::Config => {
-            print_config(&config_path, &config)?;
+            config::print_config(&config_path, &config)?;
         }
         Command::List => {
             for il in bridge.get_all_lights()? {
@@ -129,27 +108,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_config_path() -> Result<std::path::PathBuf, Error> {
-    let project_dirs = ProjectDirs::from("", "", "blilys").expect("Config dir not readable");
-    let config_dir = project_dirs.config_dir();
-    if !config_dir.is_dir() {
-        fs::create_dir_all(config_dir)?;
-    }
-    let config_path = config_dir.join("config.toml");
-    Ok(config_path)
-}
-
-fn read_config(config_path: &std::path::PathBuf) -> Result<Config, Error> {
-    let config: Config = match config_path.is_file() {
-        true => toml::from_str(String::from_utf8(fs::read(config_path)?)?.as_ref())?,
-        false => Default::default(),
-    };
-    Ok(config)
-}
-
 fn pair(
     unauth_bridge: hueclient::UnauthBridge,
-    config: &mut Config,
+    config: &mut config::Config,
     config_path: &std::path::PathBuf,
 ) -> Result<hueclient::Bridge, Error> {
     eprintln!("Discovered Philips Hue bridge at {}.", unauth_bridge.ip);
@@ -163,8 +124,8 @@ fn pair(
     eprintln!("Pairing complete.");
 
     eprintln!("Writing configuration ...");
-    *config = Config {
-        bridge: Bridge {
+    *config = config::Config {
+        bridge: config::Bridge {
             ip: Some(bridge.ip),
             username: Some(bridge.username.to_owned()),
             ..config.bridge
@@ -172,14 +133,8 @@ fn pair(
         ..*config
     };
     fs::write(config_path, toml::to_string(&*config)?)?;
-    print_config(config_path, &*config)?;
+    config::print_config(config_path, &*config)?;
     Ok(bridge)
-}
-
-fn print_config(config_path: &Path, config: &Config) -> Result<()> {
-    eprintln!("# {}", config_path.to_string_lossy());
-    print!("{}", toml::to_string(&config)?);
-    Ok(())
 }
 
 fn rand_bri(low: u8, high: u8) -> u8 {
