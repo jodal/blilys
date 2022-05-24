@@ -29,7 +29,7 @@ enum Command {
     /// Show config.
     Config,
     /// List available lights.
-    List,
+    Lights,
     /// Control a light.
     Light {
         light: usize,
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
         Command::Config => {
             config.print()?;
         }
-        Command::List => {
+        Command::Lights => {
             for il in bridge.get_all_lights()? {
                 println!("{id:2}: {name}", id = il.id, name = il.light.name,);
                 println!(
