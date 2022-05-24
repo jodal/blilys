@@ -22,7 +22,7 @@ struct Opt {
     cmd: Command,
 }
 
-#[derive(Debug, Eq, PartialEq, StructOpt)]
+#[derive(Debug, StructOpt)]
 enum Command {
     /// Pair with bridge to get a username.
     Pair,
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         },
     };
 
-    let bridge = if opt.cmd == Command::Pair {
+    let bridge = if let Command::Pair = opt.cmd {
         pair(unauth_bridge, &mut config)?
     } else {
         match config.bridge.username {
